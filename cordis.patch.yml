@@ -1,0 +1,29 @@
+# 一个 loader entry，两种形态。
+#
+# entry 的 id 必须等于插件注册的 settings 命名空间名（`memory-lens`，见
+# lib/index.js 的 NAMESPACE）。DSH 0.1.7+ 的 settings.write() 用
+# `configEditor.entries().find((row) => row.options.id === ns)` 定位可写目标，
+# 再用 `entry.fiber.runtime.Config` 取 schema —— id 与命名空间不同名时，
+# 设置页的写入会永远抛 `No configurable plugin entry "memory-lens"`。
+# `name` 仍然是包名，二者职责不同，不能混为一谈。
+#
+# 客户端半（lib/client.js）由 dsh.client 声明自动装配，不需要在这里再开一行。
+- insert:
+    - id: memory-lens
+      name: dsh-memory-lens
+      config:
+        # 记忆文件。空字符串 = 用 $DSH_HOME/memory-lens/memory.json。
+        # 显式写路径是为了让用户能把它放进自己的同步盘。
+        storeFile: ''
+        # 每轮对话最多注入多少字。注入块会算进上下文预算，不是免费的。
+        injectMaxChars: 1200
+        # 每轮最多注入几条。
+        injectLimit: 12
+        # 关掉就不再注入（记忆仍在，仍可用 recall 工具查）。
+        injectEnabled: true
+        # 半衰期（天）：多久不提就衰减一半。这个值越大，记忆越"黏"。
+        decayHalfLifeDays: 365
+        # 强度低于这个值就自动归档（不再注入，但保留可查）。
+        decayArchiveBelow: 0.08
+        # 上限。超了就按强度淘汰最弱的。
+        maxEntries: 1000

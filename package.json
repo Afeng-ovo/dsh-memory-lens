@@ -1,0 +1,96 @@
+{
+  "name": "dsh-memory-lens",
+  "version": "0.1.0",
+  "description": "Long-term memory for DeepSeek Harness — cross-session facts, preferences and promises that survive restarts, with a visual memory map. Ships its own storage, tools and settings UI.",
+  "type": "module",
+  "main": "./lib/index.js",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "memory",
+    "long-term-memory",
+    "context"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/USER/dsh-memory-lens.git"
+  },
+  "bugs": {
+    "url": "https://github.com/USER/dsh-memory-lens/issues"
+  },
+  "homepage": "https://github.com/USER/dsh-memory-lens#readme",
+  "files": [
+    "lib",
+    "docs",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "compatibility": {
+      "dsh": ">=0.2.0-rc.1 <0.3.0-0",
+      "dshReleases": {
+        "0.2.0-rc.1": "compatible",
+        "0.2.0-rc.2": "compatible",
+        "0.2.1-rc.1": "compatible",
+        "0.2.1-rc.2": "compatible"
+      }
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots"
+      ],
+      "platform": "web"
+    },
+    "manifestVersion": 1
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.5",
+    "@deepseek-ai/dsh-client-locale": "^0.2.1-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.2.1-rc.1",
+    "@deepseek-ai/dsh-host-webserver": "^0.2.1-rc.1",
+    "@deepseek-ai/dsh-tools": "^0.2.1-rc.1",
+    "react": "^18.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-locale": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-slots": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-host-webserver": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5"
+  }
+}
