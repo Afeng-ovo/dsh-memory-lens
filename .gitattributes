@@ -1,0 +1,10 @@
+lib/client.js text eol=lf
+lib/index.js text eol=lf
+lib/store.js text eol=lf
+lib/tools.js text eol=lf
+lib/core/long-memory.js text eol=lf
+test/*.mjs text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.png binary
