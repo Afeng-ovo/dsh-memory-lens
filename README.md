@@ -151,10 +151,21 @@ dsh plugin remove dsh-memory-lens
 
 ## 面板里能做的事
 
-- 新增 / 编辑 / 结案 / 撤销结案 / 归档 / 复活 / 删除（删除有二次确认）
-- 按关键词试算注入：改一下查询词，就能看到「换个话题时她会想起哪些」
-- 导出 / 导入 JSON
-- 从别的记忆系统迁移：`POST /dsh-memory-lens/api/import` 接受 `{ items: [...] }`，做字段归一（v1 条目没有 `status` 字段会自动补 `active`）
+- 记一条 / 编辑 / 续命 / 结案 / 撤销结案 / 归档 / 复活 / 删除（删除有二次确认）
+- 按状态筛选、按正文或标签搜索
+- 想看原始数据就直接开 `$DSH_HOME/memory-lens/memory.json` —— 想备份、想同步、想手改，就那一个文件
+
+**从别的记忆系统迁移**（没有按钮，走接口）：
+
+```bash
+# 接受 { items: [...] } 或完整的 { buckets: { shared: [...] } }
+curl -X POST http://127.0.0.1:<端口>/dsh-memory-lens/api/import \
+  -H 'content-type: application/json' \
+  --data-binary @old-memory.json
+```
+
+按「正文 + 类型」去重，重复的跳过；返回 `{ ok, added, skipped, total }`。
+老数据缺 `status` 字段会自动补 `active`，所以别的系统的库可以直接倒进来。
 
 ---
 
