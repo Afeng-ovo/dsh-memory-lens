@@ -8,3 +8,4 @@ test/*.mjs text eol=lf
 *.yml text eol=lf
 *.json text eol=lf
 *.png binary
+*.sh text eol=lf
