@@ -10,3 +10,4 @@ memory.json.tmp
 examples/self-host/data/long-memory.json
 examples/self-host/state/
 examples/self-host/backups/
+.tmp/
