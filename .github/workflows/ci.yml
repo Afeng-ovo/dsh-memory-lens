@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }} · ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 是 package.json engines 的下限，22 是当前 LTS，24 是本机开发用的版本。
+        # 三个都跑：跨版本才看得出有没有用到新 API。
+        node: [20, 22, 24]
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # 只用 npm ci 装 schemastery 这一个真依赖；peer 依赖由宿主运行时提供，
+      # 全部标了 optional，所以不会因为缺 peer 而失败。
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Syntax check
+        run: |
+          node --check lib/index.js
+          node --check lib/store.js
+          node --check lib/tools.js
+          node --check lib/core/long-memory.js
+          node --check lib/client.js
+
+      - name: Host half self-check
+        run: node test/host.test.mjs
+
+      - name: Tool layer self-check
+        run: node test/tools.test.mjs
+
+      - name: Client half self-check
+        run: node test/client.test.mjs
+
+      # 打包一次，确认 npm 包里确实带上了 README 引用的截图 —— 少了它，
+      # npm 页面上的说明会有一个裂图。
+      - name: Pack check
+        shell: bash
+        run: |
+          npm pack --json > pack.json
+          node -e "
+            const p = require('./pack.json')[0];
+            const files = p.files.map(f => f.path);
+            const need = ['lib/index.js','lib/client.js','lib/store.js','lib/tools.js','lib/core/long-memory.js','cordis.patch.yml','README.md','LICENSE','docs/screenshot-graph.png'];
+            const missing = need.filter(n => !files.includes(n));
+            if (missing.length) { console.error('包里缺文件：', missing.join(', ')); process.exit(1); }
+            console.log('包文件', files.length, '个，解包', (p.unpackedSize/1024).toFixed(1), 'kB');
+          "
