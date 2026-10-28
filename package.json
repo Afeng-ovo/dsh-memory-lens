@@ -15,12 +15,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/USER/dsh-memory-lens.git"
+    "url": "git+https://github.com/Afeng-ovo/dsh-memory-lens.git"
   },
   "bugs": {
-    "url": "https://github.com/USER/dsh-memory-lens/issues"
+    "url": "https://github.com/Afeng-ovo/dsh-memory-lens/issues"
   },
-  "homepage": "https://github.com/USER/dsh-memory-lens#readme",
+  "homepage": "https://github.com/Afeng-ovo/dsh-memory-lens#readme",
   "files": [
     "lib",
     "docs",
@@ -92,5 +92,6 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.5"
-  }
+  },
+  "author": "Afeng-ovo"
 }

@@ -34,7 +34,7 @@ LLM 的上下文是会话级的。你今天告诉它「我在准备考研，别�
 
 设置 → **插件** → **添加插件** → 填 `dsh-memory-lens` → 安装 → 重启 DSH。
 
-也可以填 GitHub 地址（`https://github.com/<你>/dsh-memory-lens`）、tarball 地址，或本机绝对路径。
+也可以填 GitHub 地址（`https://github.com/Afeng-ovo/dsh-memory-lens`）、tarball 地址，或本机绝对路径。
 
 ### 命令行
 
@@ -50,7 +50,7 @@ dsh plugin --profile desktop add dsh-memory-lens
 
 ```bash
 dsh plugin add dsh-memory-lens                        # npm 包
-dsh plugin add github:<你>/dsh-memory-lens            # GitHub 仓库
+dsh plugin add github:Afeng-ovo/dsh-memory-lens       # GitHub 仓库
 dsh plugin add /绝对/路径/到/dsh-memory-lens           # 本地目录（开发用）
 ```
 

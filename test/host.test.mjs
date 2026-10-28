@@ -161,6 +161,19 @@ const afterWrite = section.text({});
 assert.ok(afterWrite.includes('阿风在做 QQ 机器人的记忆系统'), '写入后系统提示里应出现这条');
 assert.ok(afterWrite.length <= 1200, '注入块不能超预算');
 
+// ── 5b. 面板显示的注入块必须和真正注入的逐字相同 ─────────────────────────
+//
+// 守的是这套系统最不能出的问题：「面板上显示的」和「她真读到的」变成两套真相。
+// 一旦有人给面板单独加一套打分/渲染，用户看着面板说「她记得这事」而实际注入里
+// 没有，用户永远发现不了 —— 直到某天她真的忘了，也说不清是哪一环出的问题。
+res = await call('/dsh-memory-lens/api/snapshot', { headers: LOOPBACK });
+const snapSame = JSON.parse(res.body);
+assert.equal(
+  snapSame.injected.block,
+  section.text({}),
+  '快照里的 injected.block 必须和系统提示里注入的逐字相同（不能有两套渲染）'
+);
+
 // ── 6. 快照里带上了记忆图需要的派生字段 ──────────────────────────────────
 res = await call('/dsh-memory-lens/api/snapshot', { headers: LOOPBACK });
 const snap2 = JSON.parse(res.body);
