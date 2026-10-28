@@ -39,6 +39,10 @@ jobs:
           node --check lib/tools.js
           node --check lib/core/long-memory.js
           node --check lib/client.js
+          node --check test/host.test.mjs
+          node --check test/tools.test.mjs
+          node --check test/client.test.mjs
+          node --check test/_dsh-tools-stub.mjs
 
       - name: Host half self-check
         run: node test/host.test.mjs

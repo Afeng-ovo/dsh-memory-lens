@@ -3,23 +3,12 @@
 // 重启 DSH 才看得见结果，改三个字等半分钟，没人愿意这么干活。
 //
 // `@deepseek-ai/dsh-tools` 是宿主（Electron asar 内部）提供的包，纯 node 里解析不到。
-// 这里用 module.registerHooks 给它一个替身，**不往发布包里塞 node_modules**。
+// 替身装在 ./_dsh-tools-stub.mjs 里（和 host.test.mjs 共用一份，**不往发布包里塞 node_modules**）。
+import './_dsh-tools-stub.mjs';
+
 import fs from 'node:fs';
-import module from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
-
-// defineTool 的替身：真宿主里它做的是校验 + 打标记，这里只需要原样透传定义对象。
-// 这样 tools.js 里的 import 保持不变，测试跑的是同一份真实代码。
-const STUB = 'data:text/javascript,' + encodeURIComponent('export const defineTool = (def) => def;');
-module.registerHooks({
-  resolve(specifier, context, next) {
-    if (specifier === '@deepseek-ai/dsh-tools') {
-      return { url: STUB, shortCircuit: true };
-    }
-    return next(specifier, context);
-  }
-});
 
 const { MemoryStore } = await import('../lib/store.js');
 

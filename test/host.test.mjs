@@ -6,21 +6,14 @@
 //
 // 这不是「跑起来就行」的冒烟测试：下面每条断言都对着一个具体的失败模式
 // （路径写错、order 非数字、跨站放行、注入块没生成）。
+// 给 @deepseek-ai/dsh-tools 装替身（宿主提供、纯 node 解析不到）。
+// 必须在 import lib/index.js 之前完成 —— 静态 import 按源码顺序求值，所以放第一行。
+import './_dsh-tools-stub.mjs';
+
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import module from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
-
-// `@deepseek-ai/dsh-tools` 由宿主（Electron asar）在运行时提供，纯 node 里解析不到。
-// 给它一个替身，这样测试跑的是 lib/index.js 的真实代码，而不是另写一份逻辑。
-const STUB = 'data:text/javascript,' + encodeURIComponent('export const defineTool = (def) => def;');
-module.registerHooks({
-  resolve(specifier, context, next) {
-    if (specifier === '@deepseek-ai/dsh-tools') return { url: STUB, shortCircuit: true };
-    return next(specifier, context);
-  }
-});
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'memlens-host-'));
 process.env.DSH_HOME = tmp;
