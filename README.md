@@ -2,6 +2,7 @@
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Afeng-ovo/dsh-memory-lens/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://github.com/Afeng-ovo/dsh-memory-lens/blob/main/package.json)
+[![CI](https://github.com/Afeng-ovo/dsh-memory-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/Afeng-ovo/dsh-memory-lens/actions/workflows/ci.yml)
 
 给 [DeepSeek Harness](https://github.com/deepseek-ai) 的长期记忆插件。让 agent 跨会话记住你的事：稳定事实、偏好、答应过的约定、发生过的事件。重启之后她仍然记得。
 
