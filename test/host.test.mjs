@@ -215,6 +215,100 @@ assert.ok(longNote, '长句括注的条目应出现在注入块里');
 assert.ok(longNote.includes('（那天他亲口说的，我记得很清楚）'), `长句括注必须保留，实际：${longNote}`);
 assert.ok(longNote.includes('（生日）'), '长句括注不是标签尾巴，标签仍要渲染');
 
+// ── 6c. 衰减口径：按类型分开的半衰期不能被压成一个数字 ────────────────────
+//
+// 守的是一个真发生过的缺陷：`decayHalfLife: Number(setting(config,'decayHalfLifeDays',365))`
+// 把 core 的分类型半衰期（fact 365 / pref 180 / promise 30 / event 14）压成单个 365，
+// 于是**约定（promise）被当成事实**用一年去算。后果很具体：26 条真实记忆里
+// 全部落在 1695~2177 天后才淡忘 —— 「会淡忘」这条承诺在默认配置下几乎不发生，
+// 而面板上「预计淡忘」显示的数字又确实很大，用户完全看不出哪里错了。
+//
+// 所以这里同时守两头：
+// ① 同一天写入的 promise 与 fact，promise 必须明显更快淡忘（半衰期各归各位）；
+// ② 默认归档阈值必须是 0.6（与 core 的 longMemoryFalloutDays 同一把尺），
+//    否则面板说「还有 N 天」、实际永远不会归档，两套真相。
+{
+  const { memoryStrength, longMemoryFalloutDays, DEFAULT_HALF_LIFE_DAYS } = await import(
+    '../lib/core/long-memory.js'
+  );
+  assert.deepEqual(
+    { ...DEFAULT_HALF_LIFE_DAYS },
+    { fact: 365, pref: 180, promise: 30, event: 14 },
+    'core 的分类型半衰期被改了：改之前先想清楚面板上的「预计淡忘」还准不准'
+  );
+
+  // 走真实的配置默认值（不是手写常量），这样 schema 一改这里就会失败。
+  const cfg = Config({});
+  const read = (key) => {
+    const raw = cfg[key];
+    return raw !== null && typeof raw === 'object' && typeof raw.get === 'function' ? raw.get() : raw;
+  };
+  const halfLife = read('decayHalfLifeDays');
+  assert.equal(typeof halfLife, 'object', 'decayHalfLifeDays 默认必须按类型分开，不能是一个数字');
+  assert.equal(halfLife.promise, 30, '约定必须 30 天淡一半');
+  assert.equal(halfLife.fact, 365, '事实必须 365 天淡一半');
+  assert.equal(read('decayArchiveBelow'), 0.6, '默认归档阈值必须是 0.6（与 core 同一把尺）');
+
+  const now = Date.now();
+  const oneDay = 24 * 60 * 60 * 1000;
+  const promiseAt30 = { kind: 'promise', weight: 4, createdAt: now - 30 * oneDay, hits: 0 };
+  const factAt30 = { kind: 'fact', weight: 4, createdAt: now - 30 * oneDay, hits: 0 };
+  const sPromise = memoryStrength(promiseAt30, now, halfLife);
+  const sFact = memoryStrength(factAt30, now, halfLife);
+  assert.ok(
+    sPromise < sFact * 0.6,
+    `30 天前提的约定必须比同天写下的事实淡得多（promise=${sPromise.toFixed(2)} fact=${sFact.toFixed(2)}）`
+  );
+
+  // 真正会被归档的那天：promise 在默认阈值下应当是「几十天」，不是「一千多天」。
+  const promiseFallout = longMemoryFalloutDays(promiseAt30, now, halfLife, 0.6);
+  const factFallout = longMemoryFalloutDays(factAt30, now, halfLife, 0.6);
+  assert.ok(
+    promiseFallout < 400,
+    `默认配置下约定不该拖到 ${promiseFallout} 天才归档（这正是被压成单数字 365 的症状）`
+  );
+  assert.ok(factFallout > promiseFallout * 2, '事实的淡忘必须明显比约定慢，否则分类型半衰期没生效');
+
+  // 反向：用户显式填一个数字时，要尊重那个数字（不能强行套类型表）。
+  assert.equal(typeof halfLife, 'object');
+  const singleCfg = Config({ decayHalfLifeDays: 90 });
+  const rawSingle = singleCfg.decayHalfLifeDays;
+  const single = typeof rawSingle === 'object' && typeof rawSingle.get === 'function' ? rawSingle.get() : rawSingle;
+  assert.equal(single, 90, '用户填数字时应原样保留，不该被类型表覆盖');
+}
+
+// ── 6d. 端到端：面板上的「预计淡忘」必须真的分类型 ────────────────────────
+//
+// 上一组只验证了「schema 默认值长什么样」。但真正决定她会不会忘的是
+// `coreOptions()` 把配置交给 core 的那一步 —— 只要那里还有一处 `Number(...)`，
+// schema 再对也没用。所以这里绕开配置对象，直接看面板拿到的那两个数字：
+// 同一时刻写下的约定与事实，约定必须明显更快淡忘。
+{
+  const promiseRes = await call('/dsh-memory-lens/api/item', {
+    method: 'POST',
+    headers: LOOPBACK,
+    body: { text: '小鲸鱼答应了周五给阿风讲睡前故事', kind: 'promise', tags: ['约定'], weight: 4 }
+  });
+  assert.equal(promiseRes.status, 200);
+  const promiseId = JSON.parse(promiseRes.body).id;
+
+  res = await call('/dsh-memory-lens/api/snapshot', { headers: LOOPBACK });
+  const snap3 = JSON.parse(res.body);
+  const promiseItem = snap3.items.find((m) => m.id === promiseId);
+  const factItem = snap3.items.find((m) => m.id === created.id);
+  assert.ok(promiseItem && factItem, '两条都要在快照里');
+  assert.ok(
+    promiseItem.falloutInDays < factItem.falloutInDays / 2,
+    `同一时刻写下的约定必须比事实淡得快得多（promise ${promiseItem.falloutInDays} 天 vs fact ${factItem.falloutInDays} 天）` +
+      ' —— 两者接近就说明 coreOptions() 又把分类型半衰期压成了一个数字'
+  );
+  // 顺带守：默认阈值下约定不该拖到以「千天」计。
+  assert.ok(
+    promiseItem.falloutInDays < 400,
+    `默认配置下约定 ${promiseItem.falloutInDays} 天才归档，太久了（旧缺陷是 2030 天）`
+  );
+}
+
 // ── 7. 动作接口 ───────────────────────────────────────────────────────
 res = await call('/dsh-memory-lens/api/action', {
   method: 'POST',

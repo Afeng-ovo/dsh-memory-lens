@@ -22,8 +22,17 @@
         # 关掉就不再注入（记忆仍在，仍可用 recall 工具查）。
         injectEnabled: true
         # 半衰期（天）：多久不提就衰减一半。这个值越大，记忆越"黏"。
-        decayHalfLifeDays: 365
+        # 按类型分开给 —— 一件事和一条偏好本来就该以不同速度淡去：
+        # 事实一年才淡一半，约定一个月就淡一半（答应过的事，不提起就该沉下去）。
+        # 想全部用同一个速度，把这个对象换成一个数字即可。
+        decayHalfLifeDays:
+          fact: 365
+          pref: 180
+          promise: 30
+          event: 14
         # 强度低于这个值就自动归档（不再注入，但保留可查）。
-        decayArchiveBelow: 0.08
+        # 0.6 与 core 的 longMemoryFalloutDays 是同一个阈值，所以面板上
+        # 「预计淡忘 N 天后」的 N 就是它真正被归档的那天。
+        decayArchiveBelow: 0.6
         # 上限。超了就按强度淘汰最弱的。
         maxEntries: 1000
