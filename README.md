@@ -1,5 +1,9 @@
 # dsh-memory-lens · 记忆透镜
 
+[![CI](https://github.com/Afeng-ovo/dsh-memory-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/Afeng-ovo/dsh-memory-lens/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/dsh-memory-lens.svg)](https://www.npmjs.com/package/dsh-memory-lens)
+[![license](https://img.shields.io/npm/l/dsh-memory-lens.svg)](https://github.com/Afeng-ovo/dsh-memory-lens/blob/main/LICENSE)
+
 给 [DeepSeek Harness](https://github.com/deepseek-ai) 的长期记忆插件。让 agent 跨会话记住你的事：稳定事实、偏好、答应过的约定、发生过的事件。重启之后她仍然记得。
 
 自带存储、自带工具、自带设置页，**不依赖任何其他插件或服务**。
