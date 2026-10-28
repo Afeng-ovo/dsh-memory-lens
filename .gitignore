@@ -5,3 +5,8 @@ Thumbs.db
 memory.json
 memory.json.tmp
 .memory-lens-backup/
+
+# examples/self-host 跑起来后产生的真实数据，不该进仓库
+examples/self-host/data/long-memory.json
+examples/self-host/state/
+examples/self-host/backups/

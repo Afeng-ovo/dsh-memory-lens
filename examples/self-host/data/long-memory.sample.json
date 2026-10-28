@@ -1,0 +1,171 @@
+{
+ "version": 2,
+ "buckets": {
+  "shared": [
+   {
+    "id": "lm-mvgmsg00n116",
+    "kind": "fact",
+    "text": "阿风在准备考研，目标是本校计算机",
+    "tags": [
+     "学业",
+     "考研"
+    ],
+    "weight": 5,
+    "status": "superseded",
+    "supersededBy": "lm-mvgmsg00n116",
+    "supersededAt": 1792497600000,
+    "createdAt": 1792497600000,
+    "lastUsedAt": 1792324800000,
+    "updatedAt": 1792324800000,
+    "hits": 0
+   },
+   {
+    "id": "lm-mvgmsg00y4ie",
+    "kind": "fact",
+    "text": "阿风养了只柯基叫土豆，两岁",
+    "tags": [
+     "宠物",
+     "柯基"
+    ],
+    "weight": 4,
+    "status": "active",
+    "supersededBy": null,
+    "supersededAt": null,
+    "createdAt": 1792497600000,
+    "lastUsedAt": 1793016000000,
+    "updatedAt": 1792497600000,
+    "hits": 12
+   },
+   {
+    "id": "lm-mvi28ao00uhw",
+    "kind": "pref",
+    "text": "阿风讨厌下雨天，出门必带伞",
+    "tags": [
+     "生活习惯"
+    ],
+    "weight": 3,
+    "status": "active",
+    "supersededBy": null,
+    "supersededAt": null,
+    "createdAt": 1792584000000,
+    "lastUsedAt": 1793016000000,
+    "updatedAt": 1792584000000,
+    "hits": 8
+   },
+   {
+    "id": "lm-mvjho5c0jn3y",
+    "kind": "pref",
+    "text": "阿风喜欢在深夜写代码，说那时候思路最清楚",
+    "tags": [
+     "习惯",
+     "工作"
+    ],
+    "weight": 3,
+    "status": "active",
+    "supersededBy": null,
+    "supersededAt": null,
+    "createdAt": 1792670400000,
+    "lastUsedAt": 1793016000000,
+    "updatedAt": 1792670400000,
+    "hits": 5
+   },
+   {
+    "id": "lm-mvkx4000nvpy",
+    "kind": "promise",
+    "text": "说好周六一起看电影《流浪地球3》",
+    "tags": [
+     "约定",
+     "电影"
+    ],
+    "weight": 4,
+    "status": "active",
+    "supersededBy": null,
+    "supersededAt": null,
+    "dueAt": {
+     "when": "这周六",
+     "date": "2026-11-01",
+     "ts": 1793462400000
+    },
+    "remindedAt": null,
+    "createdAt": 1792756800000,
+    "lastUsedAt": 1793016000000,
+    "updatedAt": 1792756800000,
+    "hits": 2
+   },
+   {
+    "id": "lm-mvmcjuo087pe",
+    "kind": "event",
+    "text": "阿风这周三要交实验报告",
+    "tags": [
+     "学业"
+    ],
+    "weight": 3,
+    "status": "active",
+    "supersededBy": null,
+    "supersededAt": null,
+    "createdAt": 1792843200000,
+    "lastUsedAt": 1792843200000,
+    "updatedAt": 1792843200000,
+    "hits": 0
+   },
+   {
+    "id": "lm-mvnrzpc04les",
+    "kind": "fact",
+    "text": "阿风换工作了，现在在做前端",
+    "tags": [
+     "工作"
+    ],
+    "weight": 4,
+    "status": "active",
+    "supersededBy": null,
+    "supersededAt": null,
+    "createdAt": 1792929600000,
+    "lastUsedAt": 1792929600000,
+    "updatedAt": 1792929600000,
+    "hits": 0
+   },
+   {
+    "id": "lm-mu5h9c00spp9",
+    "kind": "event",
+    "text": "阿风上个月要去医院复查",
+    "tags": [
+     "健康"
+    ],
+    "weight": 3,
+    "status": "archived",
+    "supersededBy": null,
+    "supersededAt": null,
+    "createdAt": 1789646400000,
+    "lastUsedAt": 1789646400000,
+    "updatedAt": 1789646400000,
+    "hits": 0,
+    "archivedAt": 1790856000000,
+    "archiveReason": "decay"
+   },
+   {
+    "id": "lm-mvo3x9k0v1a2",
+    "kind": "promise",
+    "text": "说好周二陪阿风去取快递",
+    "tags": [
+     "约定"
+    ],
+    "weight": 3,
+    "status": "resolved",
+    "supersededBy": null,
+    "supersededAt": null,
+    "dueAt": {
+     "when": "周二",
+     "date": "2026-10-27",
+     "ts": 1793289600000
+    },
+    "remindedAt": 1793289600000,
+    "resolvedAt": 1793376000000,
+    "resolveNote": "取到了",
+    "createdAt": 1793016000000,
+    "lastUsedAt": 1793376000000,
+    "updatedAt": 1793376000000,
+    "hits": 3
+   }
+  ]
+ }
+}

@@ -197,6 +197,13 @@ cordis.patch.yml    loader entry
 
 `core/` 刻意不碰 `ctx`、不碰 `fs`，只有纯函数。这样打分和衰减逻辑可以脱离 DSH 单独验证 —— 这两块一旦算错，整个插件的行为就全错了，而它们最容易在「看起来正常」的表象下悄悄算错。
 
+
+### 想自己搭机器人？
+
+[`examples/self-host/`](examples/self-host/) 是同一份内核的另一种接法：命令行（`cli.mjs`）、一周演示（`demo.mjs`）、提炼提示词、日记检索、定时备份，以及接进你自己 bot 的六个接入点。
+
+它**不是第二份实现** —— 导入的就是 `lib/core/long-memory.js`，和插件跑的是同一套打分与衰减代码。想先看看这东西怎么工作、又不想装 DSH，从那里开始最快：`cd examples/self-host && node demo.mjs`。
+
 ---
 
 ## 已知边界

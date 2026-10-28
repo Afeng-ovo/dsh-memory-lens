@@ -9,3 +9,6 @@ test/*.mjs text eol=lf
 *.json text eol=lf
 *.png binary
 *.sh text eol=lf
+examples/**/*.mjs text eol=lf
+examples/**/*.md text eol=lf
+.gitignore text eol=lf
