@@ -21,6 +21,11 @@ const ctx = {
   tools: {
     register(tool) {
       registered.set(tool.name, tool);
+    },
+    // 宿主真实的注册表按名字全局唯一，registerToolSafely 会先 get 探测。
+    // 这里的替身查的是同一张表：三个工具名字各不相同，所以注册时都查不到，正常走注册。
+    get(name) {
+      return registered.get(name);
     }
   }
 };
@@ -222,6 +227,38 @@ const failed = await call('remember', { text: '   ' });
 check('空正文写入失败', failed.ok === false);
 const failedRender = registered.get('remember').output.render({ text: '   ' }, failed);
 check('失败结果也能渲染出可读文字', isContentBlocks(failedRender) && failedRender[0].text.includes('没记住'), failedRender?.[0]?.text);
+
+// 16. 工具名被别人占了：不许抛异常，也不许「装作注册成功」
+//     用户实测过：dsh-fish-memory 也注册 `remember`，谁先装上谁占坑，后装的那个写入通道
+//     从第一天就是哑的 —— 工具列表里看着有，调下去记的却是别人家的库。
+//     所以这里要钉住两件事：① 被占的那个不注册；② 其余两个照常注册（只丢一个，比全丢好）；
+//     ③ 整个过程不抛异常（抛了连面板和注入一起起不来）。
+{
+  const taken = new Map([['remember', { name: 'remember', owner: 'dsh-fish-memory' }]]);
+  const warns = [];
+  const clashCtx = {
+    logger: { warn: (msg) => warns.push(String(msg)) },
+    tools: {
+      register(tool) {
+        if (taken.has(tool.name)) throw new Error(`tool "${tool.name}" is already registered`);
+        taken.set(tool.name, tool);
+      },
+      get(name) {
+        return taken.get(name);
+      }
+    }
+  };
+  let threw = null;
+  try {
+    registerMemoryTools(clashCtx, { store, config: { maxEntries: 1000 } });
+  } catch (error) {
+    threw = error;
+  }
+  check('名字被占时不抛异常', threw === null, threw?.message);
+  check('被占的 remember 不覆盖别人', taken.get('remember').owner === 'dsh-fish-memory');
+  check('其余两个工具照常注册', taken.has('recall') && taken.has('forget'));
+  check('告警说清了原因', warns.some((w) => w.includes('remember') && w.includes('已被其他插件占用')), warns[0]?.slice(0, 90));
+}
 
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(out.join('\n'));

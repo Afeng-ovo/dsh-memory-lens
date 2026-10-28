@@ -327,6 +327,64 @@ res = await call('/dsh-memory-lens/api/action', {
 const revived = JSON.parse(res.body);
 assert.equal(revived.status, 'active');
 
+// ── 7b. 导入：三种形状都要收，且必须补齐元数据 ─────────────────────────────
+//
+// 这条守的是用户反馈里的两条真缺陷：
+//  ① README 写着能接受 `{items:[...]}`，实际处理器只认 `buckets` → 照着文档拼好的
+//     JSON 换来「没有可导入的条目」，用户以为是数据坏了。
+//  ② 裸数组分支直接 `...m` push 进库，没过 normalizeStore → 文件里只剩 text/kind/tags，
+//     `createdAt` 全空，衰减拿「现在」当锚点，一条三年前的旧事永远不淡出。
+{
+  const legacy = { text: '三年前的一件旧事，早就不重要了', kind: 'event', tags: ['旧事'] };
+
+  // 形状 A：{items:[...]}
+  res = await call('/dsh-memory-lens/api/import', {
+    method: 'POST',
+    headers: LOOPBACK,
+    body: { items: [{ ...legacy, text: `${legacy.text}（A）` }] }
+  });
+  assert.equal(res.status, 200, '{items:[...]} 必须被接受');
+  assert.equal(JSON.parse(res.body).added, 1);
+
+  // 形状 B：{buckets:{shared:[...]}}
+  res = await call('/dsh-memory-lens/api/import', {
+    method: 'POST',
+    headers: LOOPBACK,
+    body: { source: { buckets: { shared: [{ ...legacy, text: `${legacy.text}（B）` }] } } }
+  });
+  assert.equal(res.status, 200, '{source:{buckets:...}} 必须被接受');
+  assert.equal(JSON.parse(res.body).added, 1);
+
+  // 形状 C：裸数组直接当 body
+  res = await call('/dsh-memory-lens/api/import', {
+    method: 'POST',
+    headers: LOOPBACK,
+    body: [{ ...legacy, text: `${legacy.text}（C）` }]
+  });
+  assert.equal(res.status, 200, '裸数组必须被接受');
+  assert.equal(JSON.parse(res.body).added, 1);
+
+  // 三条都必须带全元数据 —— 否则衰减没有锚点
+  const imported = JSON.parse((await call('/dsh-memory-lens/api/snapshot', { headers: LOOPBACK })).body).items.filter(
+    (m) => m.text.includes('三年前的一件旧事')
+  );
+  assert.equal(imported.length, 3, '三种形状各导入一条');
+  for (const m of imported) {
+    assert.equal(m.status, 'active', `导入的条目必须补成 active：${m.text}`);
+    assert.ok(Number.isFinite(m.createdAt) && m.createdAt > 0, `导入的条目必须有 createdAt：${m.text}`);
+    assert.ok(Number.isFinite(m.hits), `导入的条目必须有 hits：${m.text}`);
+    assert.ok(Number.isFinite(m.weight), `导入的条目必须有 weight：${m.text}`);
+  }
+
+  // 空正文必须 400，不能悄悄「导入成功 0 条」
+  res = await call('/dsh-memory-lens/api/import', {
+    method: 'POST',
+    headers: LOOPBACK,
+    body: { items: [{ text: '   ' }] }
+  });
+  assert.equal(res.status, 400, '全是空正文时必须 400');
+}
+
 // ── 8. 未知动作必须报错，而不是静默成功 ──────────────────────────────────
 res = await call('/dsh-memory-lens/api/action', {
   method: 'POST',

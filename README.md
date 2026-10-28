@@ -171,14 +171,18 @@ dsh plugin remove dsh-memory-lens
 **从别的记忆系统迁移**（没有按钮，走接口）：
 
 ```bash
-# 接受 { items: [...] } 或完整的 { buckets: { shared: [...] } }
+# 三种形状都收：{ "source": {...} }（脚本用法）、{ "items": [...] }、或把库直接当 body 传
 curl -X POST http://127.0.0.1:<端口>/dsh-memory-lens/api/import \
   -H 'content-type: application/json' \
   --data-binary @old-memory.json
 ```
 
-按「正文 + 类型」去重，重复的跳过；返回 `{ ok, added, skipped, total }`。
-老数据缺 `status` 字段会自动补 `active`，所以别的系统的库可以直接倒进来。
+- 条目列表可以放在 `items` 里、也可以放在 `buckets.shared` 里、或者就是一个裸数组。
+- 每条至少要有非空的 `text`；其余字段缺了会自动补 —— `status` 补 `active`，
+  `createdAt`/`lastUsedAt`/`updatedAt` 补成导入那一刻，`weight` 补 3，`hits` 补 0。
+  **补 `createdAt` 不是为了好看**：衰减要靠它算「这件事多久没被提起了」，
+  缺了就只能当成刚写下的，一条三年前的旧事会一直不淡出。
+- 按「正文 + 类型」去重，重复的跳过；返回 `{ ok, added, skipped, total }`。
 
 ---
 
