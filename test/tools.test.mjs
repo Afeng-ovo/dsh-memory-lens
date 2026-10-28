@@ -126,6 +126,103 @@ check('删不存在报错', r10.ok === false);
 const store2 = new MemoryStore(file);
 check('重启后能读回', store2.bucket('shared').length === store.bucket('shared').length, `${store2.bucket('shared').length} 条`);
 
+// 14. 宿主渲染契约。
+//
+// 这一组是补一个真实的漏洞：0.1.0 发布时三个工具都只写了 `output.schema`、没写
+// `output.render`，而宿主 `defineTool` 里是 `const userRender = options.output.render;`
+// —— undefined 被带进闭包，等到真渲染时抛
+// `tool "remember" returned invalid output: output.render failed: userRender is not a function`。
+// 更糟的是 execute 已经跑完、记忆已经落盘，用户收到的却是错误 → 以为没记上 → 再说一遍 → 库里两条。
+//
+// 原来 26 项为什么全绿却漏掉它：`call()` 只调 `tool.execute()`，从没碰过 `tool.output.render`。
+// 测的是「逻辑对不对」，没测「宿主认不认」—— 而用户遇到的恰恰是后者。
+const walkLossless = (value) => {
+  // 照抄宿主 @deepseek-ai/dsh-util-values 的 walkJsonValue 判定：
+  // undefined / 函数 / 符号 / 非有限数 / -0 / 环引用 / 非纯原型 一律不是无损 JSON。
+  // 测试里必须自带一份，因为宿主包在 Electron asar 内部，CI 上拿不到。
+  const tasks = [{ kind: 'visit', value }];
+  const ancestors = new Set();
+  for (let task = tasks.pop(); task !== undefined; task = tasks.pop()) {
+    if (task.kind === 'leave') {
+      ancestors.delete(task.source);
+      continue;
+    }
+    if (task.kind === 'array-item') {
+      if (!Object.prototype.hasOwnProperty.call(task.source, task.index)) return false;
+      tasks.push({ kind: 'visit', value: task.source[task.index] });
+      continue;
+    }
+    if (task.kind === 'object-property') {
+      tasks.push({ kind: 'visit', value: task.source[task.key] });
+      continue;
+    }
+    const current = task.value;
+    if (current === null) continue;
+    if (typeof current === 'boolean' || typeof current === 'string') continue;
+    if (typeof current === 'number') {
+      if (!Number.isFinite(current) || Object.is(current, -0)) return false;
+      continue;
+    }
+    if (typeof current !== 'object') return false;
+    if (ancestors.has(current)) return false;
+    ancestors.add(current);
+    tasks.push({ kind: 'leave', source: current });
+    if (Array.isArray(current)) {
+      if (Object.getPrototypeOf(current) !== Array.prototype) return false;
+      for (let i = current.length - 1; i >= 0; i--) tasks.push({ kind: 'array-item', source: current, index: i });
+      continue;
+    }
+    if (Object.getPrototypeOf(current) !== Object.prototype) return false;
+    for (const key of Object.keys(current)) tasks.push({ kind: 'object-property', source: current, key });
+  }
+  return true;
+};
+
+const isContentBlocks = (value) =>
+  Array.isArray(value) && value.length > 0 && value.every((b) => b && typeof b === 'object' && typeof b.type === 'string');
+
+check(
+  '三个工具都声明了 output.render',
+  ['remember', 'recall', 'forget'].every((n) => typeof registered.get(n).output?.render === 'function'),
+  '缺 render 会让每次调用在渲染阶段失败'
+);
+
+// 无期限的记忆（绝大多数）与有期限的记忆都要跑一遍 —— 第二个缺陷只在没有 dueAt 时触发。
+const rDue = await call('remember', { text: '下周三提醒阿风交实验报告', kind: 'promise', dueAt: '2026-11-04' });
+check('写入带期限的约定', rDue.ok === true, JSON.stringify(rDue));
+const rPlain = await call('remember', { text: '阿风家窗外有棵玉兰', kind: 'fact' });
+check('写入无期限的事实', rPlain.ok === true, JSON.stringify(rPlain));
+
+for (const [name, args] of [
+  ['remember', { text: '阿风喜欢在深夜写代码', kind: 'pref' }],
+  ['recall', { query: '阿风' }],
+  ['recall', { query: '完全不存在的关键词zzz' }],
+  ['forget', { id: rPlain.id, mode: 'resolve' }],
+  ['forget', { text: '根本没有这条', mode: 'delete' }]
+]) {
+  const tool = registered.get(name);
+  const value = await tool.execute({ args });
+  // ① execute 的返回值必须无损 —— `{ dueAt: undefined }` 就是在这里被判死的
+  check(`${name} 返回值是无损 JSON`, walkLossless(value), JSON.stringify(value).slice(0, 120));
+  // ② render 必须能跑通并交出内容块数组（宿主 assertRenderedContent 的同一把尺）
+  let rendered;
+  try {
+    rendered = tool.output.render(args, value);
+  } catch (error) {
+    check(`${name} render 不抛错`, false, error.message);
+    continue;
+  }
+  check(`${name} render 不抛错`, true);
+  check(`${name} render 返回内容块数组`, isContentBlocks(rendered), JSON.stringify(rendered).slice(0, 120));
+  check(`${name} render 结果是无损 JSON`, walkLossless(rendered));
+}
+
+// 15. 失败路径也要能渲染 —— 报错时若 render 崩了，用户看到的是宿主错误而不是真正的原因
+const failed = await call('remember', { text: '   ' });
+check('空正文写入失败', failed.ok === false);
+const failedRender = registered.get('remember').output.render({ text: '   ' }, failed);
+check('失败结果也能渲染出可读文字', isContentBlocks(failedRender) && failedRender[0].text.includes('没记住'), failedRender?.[0]?.text);
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(out.join('\n'));
 console.log(`\n${out.filter((l) => l.startsWith('✓')).length}/${out.length} 项通过`);

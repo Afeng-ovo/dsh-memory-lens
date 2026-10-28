@@ -185,12 +185,25 @@ curl -X POST http://127.0.0.1:<端口>/dsh-memory-lens/api/import \
 ## 开发
 
 ```bash
-node test/tools.test.mjs    # 工具层：26 项
+node test/tools.test.mjs    # 工具层：51 项
 node test/host.test.mjs     # 宿主半装配：10 组
 node test/client.test.mjs   # 客户端半装配：4 组
 ```
 
 三个测试都是**跑真实代码**（最小桩，不是复制一份逻辑），因为这类插件的失败模式大多是「装上了，但什么都没发生」—— 没有异常、没有日志，只是那个页面不出现。
+
+> **关于 `output.render`**：`@deepseek-ai/dsh-tools` 的 `defineTool` 里有一句
+> `const userRender = options.output.render;`，`output` 少了 `render` 它不报错，
+> 而是把 `undefined` 带进闭包，等你真去渲染时抛
+> `tool "remember" returned invalid output: output.render failed: userRender is not a function`。
+> 0.1.0 就是这样发出去的：三个工具都只写了 `schema`。更麻烦的是 `execute` 已经执行完、
+> 记忆已经落盘，用户收到的却是错误 —— 他会以为没记住，再说一遍，库里就多一条重复。
+> 所以 `test/tools.test.mjs` 现在会把每个工具真的 `render` 一遍，检查返回的是内容块数组。
+>
+> 另一条同类的坑：工具返回值必须是 **lossless JSON**。`{ dueAt: undefined }` 会被
+> `JSON.stringify` 丢掉那个键，宿主据此判定「值不是无损 JSON」，整次调用报
+> `value is not lossless JSON`。没有期限的记忆占绝大多数，所以这条几乎必踩。
+> 修法是条件展开（`dropUndefined`），不是写个 `undefined` 占位。
 
 ### 结构
 
