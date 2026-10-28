@@ -71,7 +71,14 @@ const names = tools.map((t) => t.name).sort();
 assert.deepEqual(names, ['forget', 'recall', 'remember']);
 
 // ── 3. 路由 ───────────────────────────────────────────────────────────
-const expected = ['/dsh-memory-lens/api/snapshot', '/dsh-memory-lens/api/item', '/dsh-memory-lens/api/action', '/dsh-memory-lens/api/import'];
+const expected = [
+  '/dsh-memory-lens/api/snapshot',
+  '/dsh-memory-lens/api/item',
+  '/dsh-memory-lens/api/action',
+  '/dsh-memory-lens/api/import',
+  '/dsh-memory-lens/api/audit',
+  '/dsh-memory-lens/api/diff'
+];
 assert.deepEqual([...routes.keys()].sort(), expected.sort());
 for (const [, entry] of routes) assert.equal(entry.kind, 'exact');
 
@@ -435,6 +442,50 @@ assert.deepEqual(warnings, [], `不该有告警，实际：${warnings.join(' | '
   assert.equal(tools2.length, 3, 'headless 里三个工具仍要注册');
   assert.equal(routes2.size, 0, 'headless 里不该有路由');
   fs.rmSync(tmp2, { recursive: true, force: true });
+}
+
+// ── 12. 体检与对账接口 ──────────────────────────────────────────────────
+//
+// 这两个接口的价值全在「只读」和「不误报」：体检要能看见已归档条目（否则悬空
+// 引用查不出来），对账绝不能写另一份文件（那是别的程序的数据）。
+{
+  const audit = await call('/dsh-memory-lens/api/audit', { headers: LOOPBACK });
+  assert.equal(audit.status, 200, '体检接口要能直接调');
+  const auditBody = JSON.parse(audit.body);
+  assert.equal(auditBody.ok, true);
+  assert.equal(typeof auditBody.checked, 'number');
+  assert.ok(Array.isArray(auditBody.findings));
+  assert.equal(typeof auditBody.file, 'string', '体检结果要带上被检查的文件路径');
+
+  // 对账：指向一个真实存在的另一份库，只读
+  const otherFile = path.join(tmp, 'other-store.json');
+  fs.writeFileSync(otherFile, JSON.stringify({
+    version: 2,
+    buckets: { shared: [{ text: '另一份库里的独有记忆', kind: 'fact', createdAt: Date.now() }] }
+  }), 'utf8');
+  const before = fs.readFileSync(otherFile, 'utf8');
+  const diff = await call('/dsh-memory-lens/api/diff', {
+    method: 'POST',
+    headers: LOOPBACK,
+    body: { file: otherFile }
+  });
+  assert.equal(diff.status, 200, `对账失败：${diff.body}`);
+  const diffBody = JSON.parse(diff.body);
+  assert.equal(diffBody.ok, true);
+  assert.equal(diffBody.onlyRight.length, 1, '那份库独有的记忆要出现在 onlyRight');
+  assert.equal(diffBody.onlyRight[0].text, '另一份库里的独有记忆');
+  assert.equal(fs.readFileSync(otherFile, 'utf8'), before, '对账绝不能改另一份文件');
+
+  // 缺 file 要 400，不能 500 —— 参数问题是用户能自己改的
+  const missing = await call('/dsh-memory-lens/api/diff', { method: 'POST', headers: LOOPBACK, body: {} });
+  assert.equal(missing.status, 400, '没给 file 应该 400');
+  // 文件不存在也要 400，不能把内部异常抛成 500
+  const gone = await call('/dsh-memory-lens/api/diff', {
+    method: 'POST',
+    headers: LOOPBACK,
+    body: { file: path.join(tmp, 'no-such-store.json') }
+  });
+  assert.equal(gone.status, 400, '文件不存在应该 400');
 }
 
 fs.rmSync(tmp, { recursive: true, force: true });
