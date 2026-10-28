@@ -91,6 +91,7 @@ dsh plugin remove dsh-memory-lens
     injectEnabled: true
     injectLimit: 12
     injectMaxChars: 1200
+    injectRotateSlots: 2   # 每轮给「冷门记忆」留几个名额（0=不轮换）
     decayHalfLifeDays:      # 半衰期（天）。也可以直接写一个数字，表示所有类型共用
       fact: 365
       pref: 180
@@ -101,6 +102,8 @@ dsh plugin remove dsh-memory-lens
 ```
 
 `decayArchiveBelow` 默认 **0.6**，与 core 计算「预计淡忘 N 天后」用的是同一个阈值 —— 面板上显示的那天，就是它真正沉下去的那天。按默认半衰期，一条刚写下、权重 3 的记忆大约在这样的时候归档：事件 33 天、约定 70 天、偏好 418 天、事实 848 天（权重每高一分寿命更长：权重 5 的事实约 1116 天）。**约定比事实淡得快得多是故意的**：答应了却两个月没动静的事，不该像「我在准备考研」那样挂两年。
+
+`injectRotateSlots` 默认 **2**：库里的条数超过注入上限时，排序靠后的条目本来**永远**进不了上下文（查询为空时分数只剩「权重 + 新近度」，排序长期稳定）—— 它们没被归档，只是每次都在队尾，等于不存在。留两个名额，每小时换一批，让每一条都有机会进来一次。**只挤占排在后半段的**，不会把本该在的高分条目顶出去；库比上限还小时名额自动失效。
 
 ---
 
@@ -213,6 +216,7 @@ node test/tools.test.mjs    # 工具层：55 项
 node test/host.test.mjs     # 宿主半装配：12 组
 node test/client.test.mjs   # 客户端半装配：4 组
 node test/audit.test.mjs    # 体检与对账：26 项
+node examples/self-host/self-test.mjs   # 内核自检：41 项
 ```
 
 三个测试都是**跑真实代码**（最小桩，不是复制一份逻辑），因为这类插件的失败模式大多是「装上了，但什么都没发生」—— 没有异常、没有日志，只是那个页面不出现。

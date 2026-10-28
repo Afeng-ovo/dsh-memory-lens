@@ -725,4 +725,40 @@ function ok(name) {
   ok('已结案条目：复述时就地刷新，不重复、不回退');
 }
 
+// 41. 轮换：库比注入上限大时，排在后半段的冷门条目也要轮到
+//
+// 守的是一个不容易被发现的死角：查询为空时分数只剩「权重 + 新近度」，排序长期稳定。
+// 库里 28 条、预算只放得下 9 条时，后面 19 条**永远**进不了上下文 ——
+// 它们没被归档，只是每次都在队尾，等于不存在。用户会觉得「我明明记过这事」。
+{
+  const list = [];
+  for (let i = 0; i < 30; i += 1) {
+    upsertLongMemory(list, { kind: 'fact', text: `第 ${i} 条用来占位的记忆内容`, weight: 3 }, { maxEntries: 100 });
+  }
+  const HOUR = 3600000;
+  const base = Date.UTC(2026, 9, 28, 12, 0, 0);
+  const seen = new Set();
+  for (let h = 0; h < 20; h += 1) {
+    for (const m of selectLongMemories(list, '', 12, 1200, base + h * HOUR, false, { rotateSlots: 2 })) {
+      seen.add(m.id);
+    }
+  }
+  assert.equal(seen.size, list.length, '轮换开着时，足够多的窗口内每一条都该轮到过一次');
+
+  // 关掉轮换（rotateSlots=0）必须与从前完全一致：一条冷门都进不来。
+  const fixed = new Set();
+  for (let h = 0; h < 20; h += 1) {
+    for (const m of selectLongMemories(list, '', 12, 1200, base + h * HOUR, false, { rotateSlots: 0 })) {
+      fixed.add(m.id);
+    }
+  }
+  assert.ok(fixed.size < list.length, 'rotateSlots=0 时不轮换，行为与从前一致');
+
+  // 库比上限还小的时候，轮换名额必须自动失效 —— 不能因为「留了名额」而少注入。
+  const few = list.slice(0, 3);
+  const all = selectLongMemories(few, '', 12, 1200, base, false, { rotateSlots: 2 });
+  assert.equal(all.length, 3, '库比上限小时，轮换不该挤掉任何条目');
+  ok('轮换：库比上限大时冷门条目也能轮到，库小时名额自动失效');
+}
+
 console.log(`\n全部通过：${passed} 项`);
