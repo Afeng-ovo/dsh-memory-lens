@@ -776,6 +776,56 @@ assert.deepEqual(warnings, [], `不该有告警，实际：${warnings.join(' | '
     fs.rmSync(tmp4, { recursive: true, force: true });
   }
 
+  // 13i. 外部写入必须被看见，即使它的 mtime 和上一次保存**一模一样**。
+  //
+  //      这一条是被 CI 逼出来的：Linux runner 上 host.test 在 13f 挂掉，而本机 Windows
+  //      一直全绿 —— 差别就在 MemoryStore.load() 里那句 `diskMtime - this.mtimeMs > 1`。
+  //      1ms 容差本意是防浮点噪声，实际效果是「别人在你保存后 1ms 内写入 → 改动被判成
+  //      没有变化 → 内存里还是旧的 → 文件里明明有、注入里没有」。跑得越快越容易撞上，
+  //      所以它在 Linux 上稳定失败、在本机随机通过。容差防的从来不是真实改动。
+  //
+  //      这里用 utimesSync 把 mtime 强行改回和 reader 记录的值一模一样，让这条断言
+  //      **不依赖时序**：老实现下必然返回旧内容，新实现靠 size 差异照样能发现改动。
+  {
+    const { MemoryStore } = await import('../lib/store.js');
+    const { upsertLongMemory } = await import('../lib/core/long-memory.js');
+    const file5 = path.join(tmp3, 'mtime', 'memory.json');
+    fs.mkdirSync(path.dirname(file5), { recursive: true });
+
+    // 先把 mtime 钉成一个整毫秒的时刻，再让 reader 读 —— 否则 reader 记下的是带小数
+    // 的 mtimeMs（statSync 有亚毫秒精度，utimesSync 只能设整毫秒），后面还原不回去。
+    const frozen = new Date(Math.floor(Date.now() / 1000) * 1000);
+    fs.writeFileSync(file5, JSON.stringify({ version: 2, buckets: { shared: [] } }), 'utf8');
+    fs.utimesSync(file5, frozen, frozen);
+
+    const reader = new MemoryStore(file5);
+    assert.equal(reader.bucket('shared').length, 0);
+    assert.equal(reader.mtimeMs, frozen.getTime(), '前提：reader 记下的 mtime 必须是整毫秒');
+
+    const writer = new MemoryStore(file5);
+    const r = upsertLongMemory(writer.bucket('shared'), {
+      text: '阿风提过想养一只猫，说等稳定下来再考虑',
+      kind: 'fact',
+      tags: ['猫'],
+      weight: 4
+    });
+    assert.ok(r?.ok, `写入失败：${JSON.stringify(r)}`);
+    writer.save();
+
+    // 把 mtime 拨回 reader 记着的那个时刻 —— 模拟「同一毫秒内写入」
+    fs.utimesSync(file5, frozen, frozen);
+    assert.equal(
+      fs.statSync(file5).mtimeMs,
+      reader.mtimeMs,
+      '这条断言的前提是 mtime 真的相同（否则测的就不是容差问题）'
+    );
+    assert.equal(
+      reader.load().buckets.shared.length,
+      1,
+      'mtime 相同但内容变了也必须重读（1ms 容差会把它吞掉，只剩 size 这道防线）'
+    );
+  }
+
   fs.rmSync(tmp3, { recursive: true, force: true });
   process.env.DSH_HOME = tmp;
 }
