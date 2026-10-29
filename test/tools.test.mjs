@@ -260,6 +260,38 @@ check('失败结果也能渲染出可读文字', isContentBlocks(failedRender) &
   check('告警说清了原因', warns.some((w) => w.includes('remember') && w.includes('已被其他插件占用')), warns[0]?.slice(0, 90));
 }
 
+// 17. pin 参数：agent 说「这条一直记着」时要能真的钉住
+//
+// 为什么这条必须测：固定层是「每轮必在」的承诺，而 pin 是通过工具传进来的。
+// 如果 args.pin 被忽略（比如写成 args.pinned、或者在 upsert 之前就 return 了），
+// agent 会以为自己钉住了，用户以为「她一直记着」，而实际下一轮它就掉出去了 ——
+// 一个只在上游生效、下游静默失效的功能，比没有更糟。
+{
+  const r = await call('remember', {
+    text: '阿风说这条要一直记着：他讨厌被敷衍',
+    kind: 'pref',
+    tags: ['相处'],
+    weight: 4,
+    pin: true
+  });
+  check('pin:true 写入成功', r.ok === true, JSON.stringify(r));
+  check('返回值里带着 pinned', r.pinned === true);
+  const render = registered.get('remember').output.render({}, r);
+  check('渲染时说明了已钉住', isContentBlocks(render) && render[0].text.includes('固定层'), render?.[0]?.text);
+
+  // 落盘核对：真的写进文件了，不是只在内存里钉着
+  const disk = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const row = disk.buckets.shared.find((m) => m.id === r.id);
+  check('pinned 落盘', row?.pinned === true, JSON.stringify(row && { pinned: row.pinned }));
+  check('pinnedAt 落盘', Number.isFinite(row?.pinnedAt));
+  check('pinnedAuto=false（是 agent 明确钉的，不是猜的）', row?.pinnedAuto === false);
+
+  // 不带 pin 的写入不该被钉住 —— 默认值错了会让固定层被无意义条目塞满
+  const r2 = await call('remember', { text: '阿风今天随口说了句天气不错', kind: 'event', weight: 2 });
+  const row2 = JSON.parse(fs.readFileSync(file, 'utf8')).buckets.shared.find((m) => m.id === r2.id);
+  check('不传 pin 时不钉住', row2?.pinned === false, JSON.stringify(row2 && { pinned: row2.pinned }));
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(out.join('\n'));
 console.log(`\n${out.filter((l) => l.startsWith('✓')).length}/${out.length} 项通过`);
