@@ -155,15 +155,19 @@ return { x: P.w / 2 + x1 * k, y: P.h / 2 + y1 * k, k, z, zc };
 
 - `test/host.test.mjs` —— 假 `ctx`，真跑 `apply()`，断言 section 注册了几个、工具注册了几个、路由注册了几个
 - `test/client.test.mjs` —— 假 `__ModuleLoader__` + 假 React，真跑 `lib/client.js`，断言 `load()` 调用一次、slot 名和 order 对、loader entry id 等于 `NAMESPACE`
-- `test/tools.test.mjs` —— 真 `defineTool` 桩，26 项断言覆盖三个工具的行为边界
+- `test/tools.test.mjs` —— 真 `defineTool` 桩，62 项断言覆盖三个工具的行为边界
 
 这些测试抓到过的真缺陷，包括：
 
 - `config.injectMaxChars` 拿到的是 volatile 访问器对象而不是裸值 → `Number()` 得 `NaN` → **预算、半衰期、上限全部静默失效**
 - `activeList(store.load(), 'shared')` 传了整个 store 对象 → `Array.isArray` 失败后静默返回 `[]` → **注入永远是空字符串**
 - `export const inject` 里写了 `webServer` → headless profile 里整个插件卡在 pending，因为那个服务不存在
+- `MemoryStore.load()` 的 mtime 容差 1ms → 别人在上次保存后 1ms 内写入被当成「没变化」→ **文件里已有、注入里没有**；跑得越快越容易撞上，所以 Linux CI 稳定失败、本机随机通过
+- `frame()` 无条件续帧 → 力学收敛后仍 60 次/秒重画几百个点 → **静置吃掉 12%~36% 主线程**（最后一条是加了个静态断言才守住的，见下）
 
-三个都属于「没有异常、只是不工作」那一类。人工点是点不出来的。
+最后那条不一样：它不渲染就不跑帧，单元测试天然抓不到。所以 `test/client.test.mjs` 里加了**静态断言** —— 盯住「`frame()` 末尾的续帧必须被 `needsFrame()` 包住、不许有裸的 `requestAnimationFrame`、`needsFrame()` 的五个条件一个都不能少、30fps 限帧那一行必须存在、唤醒点至少 7 处」。这类「行为正确性只能靠真实渲染验证、但退化方式极其隐蔽」的代码，静态断言比没有强得多。
+
+三个（前三个）都属于「没有异常、只是不工作」那一类。人工点是点不出来的。
 
 ---
 

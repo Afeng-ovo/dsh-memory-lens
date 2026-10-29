@@ -153,6 +153,8 @@ dsh plugin remove dsh-memory-lens
 
 星图是 canvas 2D 手写透视投影，**零外部依赖** —— 不引 three.js 是刻意的：多一个依赖就多一个「打不开」的理由。
 
+画面停下来就不画了：力学收敛、没在旋转、没选中节点时，渲染循环会自己停帧；自动旋转时降到 30fps；只有拖拽、转视角、相机推进、选中涟漪、尺寸变化这些「画面真的在变」的时刻才续帧。**这一条是修出来的缺陷** —— 早期版本无条件每帧续帧，力学早就收敛了还 60 次/秒重画几百个点，真机实测静置吃掉 12%~36% 主线程，332 条记忆时甚至到 42%，用户感知就是「装上这个插件之后很卡」。修完静置降到 0.0%，旋转时 8.1%。
+
 ![记忆图](docs/screenshot-graph.png)
 
 「她会想起什么」里那排分层小标签（固定 / 近期 / 话题 / 兜底）长这样：
@@ -248,7 +250,7 @@ curl -X POST http://127.0.0.1:<端口>/dsh-memory-lens/api/diff \
 ```bash
 node test/tools.test.mjs    # 工具层：62 项
 node test/host.test.mjs     # 宿主半装配：13 组
-node test/client.test.mjs   # 客户端半装配：4 组
+node test/client.test.mjs   # 客户端半装配：5 组（含渲染循环静态断言）
 node test/audit.test.mjs    # 体检与对账：26 项
 node examples/self-host/self-test.mjs   # 内核自检：41 项
 ```

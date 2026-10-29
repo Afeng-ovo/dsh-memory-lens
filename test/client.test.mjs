@@ -125,7 +125,59 @@ const projected = new Set(['id', 'order', 'label', 'locale']);
 const extra = Object.keys(options).filter((k) => !projected.has(k) && k !== 'name');
 assert.deepEqual(extra, [], `settings.section 上有宿主不投影的字段：${extra.join(', ')}`);
 
-// ── 断言 4：包清单与产物对得上 ──────────────────────────────────────────
+// ── 断言 4：渲染循环不许无条件续帧 ──────────────────────────────────────
+// 为什么这条必须存在：原来 frame() 每帧无条件 requestAnimationFrame，力学早就收敛、
+// 画面完全静止，却仍然 60 次/秒重画几百个点。真机量出来静置就吃掉 12%~36% 主线程
+// （332 条记忆、暂停旋转后仍是 36.8%），用户感知就是「装上这个插件之后很卡」。
+// 这种缺陷单元测试抓不到（不渲染就不跑帧），只能静态盯住「续帧必须被条件包住」。
+const frameStart = SRC.indexOf('const frame = (');
+assert.ok(frameStart > 0, 'lib/client.js 里必须能找到 frame 定义');
+const frameEnd = SRC.indexOf('\n        };', frameStart);
+assert.ok(frameEnd > frameStart, 'frame 函数体必须能被定位（缩进变了就要同步改这里）');
+const frameBody = SRC.slice(frameStart, frameEnd);
+assert.ok(
+  frameBody.includes('if (needsFrame()) P.raf = requestAnimationFrame(frame);'),
+  'frame() 末尾必须用 needsFrame() 包住续帧 —— 无条件续帧会让静止的画面也一直重绘'
+);
+// 裸续帧 = 整行只有这一句（前面没有任何条件），逐行判，别用「以它结尾」这种松判据：
+// 正确写法 `if (needsFrame()) P.raf = requestAnimationFrame(frame);` 也以它结尾。
+const bareContinue = frameBody
+  .split('\n')
+  .map((line) => line.trim())
+  .filter((line) => line === 'P.raf = requestAnimationFrame(frame);');
+assert.deepEqual(bareContinue, [], 'frame() 里不能有裸的 requestAnimationFrame 续帧（会被判定为「永远有下一帧」）');
+
+const needsStart = SRC.indexOf('const needsFrame = ()');
+assert.ok(needsStart > 0, '必须有 needsFrame() 来判定「画面还会不会变」');
+const needsEnd = SRC.indexOf('\n        };', needsStart);
+const needsBody = SRC.slice(needsStart, needsEnd);
+for (const [needle, why] of [
+  ['P.drag || P.orbit', '拖拽/转视角时必须续帧，否则跟不了手'],
+  ['P.alpha > 0.004', '力学还在收敛时必须续帧'],
+  ['spinRef.current', '自动旋转时必须续帧'],
+  ['selRef.current', '选中节点时涟漪在动，必须续帧'],
+  ['P.camWant', '相机还在推进时必须续帧，否则停在中途']
+]) {
+  assert.ok(needsBody.includes(needle), `needsFrame() 少了条件：${why}（缺 ${needle}）`);
+}
+
+// 自动旋转时降到 30fps：画面一直在变但没必要每秒重画 60 次。收敛期与拖拽不降。
+assert.ok(
+  /const minGap = P\.drag \|\| P\.orbit \|\| P\.alpha > 0\.004 \? 0 : 33;/.test(frameBody),
+  'frame() 必须有 30fps 限帧（33ms），且收敛期/拖拽时不限帧'
+);
+
+// 所有会让画面变的地方都要踢一脚，否则静止后画面停在旧状态。
+assert.ok(SRC.includes('P.kick = kick;'), '必须把 kick 挂到 P 上，供各处唤醒');
+// 直接 kick() 与经引用调用的 kick?.() 都算唤醒点（拖拽起手/松手、滚轮、双击、尺寸变化、
+// 选中或旋转状态切换、复位）。
+const kickCalls = SRC.match(/kick\(\)|kick\?\.\(\)/g) || [];
+assert.ok(
+  kickCalls.length >= 7,
+  `唤醒点太少（${kickCalls.length} 处）：拖拽起手/松手、滚轮、双击、尺寸变化、选中或旋转状态切换、复位都要唤醒，否则停帧后画面停在旧状态`
+);
+
+// ── 断言 5：包清单与产物对得上 ──────────────────────────────────────────
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 assert.equal(pkg.name, 'dsh-memory-lens');
 assert.equal(pkg.exports['./client'].default, './lib/client.js', 'exports["./client"] 必须指向客户端产物');
