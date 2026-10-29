@@ -871,6 +871,17 @@ assert.deepEqual(warnings, [], `不该有告警，实际：${warnings.join(' | '
     upsertLongMemory(list5, { text: '阿风是主人，叫我小鲸鱼', kind: 'fact', tags: ['称呼'], weight: 5 });
     upsertLongMemory(list5, { text: '阿风答应咱家不缺钱，让我别替他省', kind: 'promise', tags: ['约定'], weight: 4 });
     upsertLongMemory(list5, { text: '阿风的生日是10月18日', kind: 'fact', tags: ['生日'], weight: 4 });
+    // 真实库里踩到过的两条：正文里带「答应」的生日、标题里带「主人」的一次性待办。
+    // 光靠「用途词正向命中」挡不住它们 —— 它们确实写了「答应」/「主人」，
+    // 但一个是纪念性事实、一个是看过就完的待办，都不该每轮都在。
+    upsertLongMemory(list5, {
+      text: '10月18日也是阿风的生日，小鲸鱼答应记住这天、每年一起过',
+      kind: 'fact', tags: ['生日'], weight: 5
+    });
+    upsertLongMemory(list5, {
+      text: '阿风让小鲸鱼去抖音看《蓝色大肥鱼：主人！起床啦！》并说说感受',
+      kind: 'promise', tags: ['待办'], weight: 2
+    });
     store5.save();
 
     // 再启动一次：这时才该自动钉，而且生日那条要**排除在外**（用户明确说过
@@ -886,7 +897,11 @@ assert.deepEqual(warnings, [], `不该有告警，实际：${warnings.join(' | '
     );
     assert.ok(
       !pinned5.some((m) => m.text.includes('生日')),
-      '生日这类「重要但不该每轮都在」的不该进固定层'
+      '生日这类「重要但不该每轮都在」的不该进固定层（哪怕正文里写了「答应」）'
+    );
+    assert.ok(
+      !pinned5.some((m) => m.text.includes('起床啦')),
+      '标题里带「主人」的一次性待办不该进固定层（引号里的词不算用途证据）'
     );
     assert.ok(Number(onDisk5.meta?.pinnedSeededAt), '钉过之后必须留标记，避免重复钉');
 
