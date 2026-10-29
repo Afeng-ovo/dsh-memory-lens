@@ -826,6 +826,89 @@ assert.deepEqual(warnings, [], `不该有告警，实际：${warnings.join(' | '
     );
   }
 
+  // 13j. 库还是空的时候，自动钉不能把「做过了」的标记写死。
+  //
+  //      这是真机验证抓出来的：全新安装时插件先启动、记忆后进来（导入 / remember /
+  //      从别的系统迁过来都是这样）。如果启动那一刻就把 pinnedSeededAt 落盘，等记忆
+  //      真到了，自动钉永远不会再跑 —— 用户看到的是一个「钉住功能在、但一条都没钉」
+  //      的初始状态，而这条规则的全部意义就是给一个说得过去的起点。
+  {
+    const tmp5 = fs.mkdtempSync(path.join(os.tmpdir(), 'memlens-seed-'));
+    process.env.DSH_HOME = tmp5;
+    const boot = (ctxHolder) => {
+      const ctx5 = {
+        logger: { warn() {}, info() {}, debug() {} },
+        systemPrompt: {
+          getSectionOrder: () => undefined,
+          section: (s) => (ctxHolder.sections.push(s), () => {})
+        },
+        tools: { register() {} },
+        webServer: { register: () => () => {} },
+        effect: (fn) => fn(),
+        inject: (deps, cb) => cb(ctx5)
+      };
+      apply2(ctx5, Config2({}));
+      return ctxHolder.sections[0];
+    };
+    const first = { sections: [] };
+    boot(first);
+
+    const storeFile5 = path.join(tmp5, 'memory-lens', 'memory.json');
+    const metaAfterEmptyBoot = fs.existsSync(storeFile5)
+      ? JSON.parse(fs.readFileSync(storeFile5, 'utf8')).meta
+      : undefined;
+    assert.equal(
+      metaAfterEmptyBoot?.pinnedSeededAt,
+      undefined,
+      '空库启动不该写下「自动钉做过了」的标记（否则之后进来的记忆永远钉不上）'
+    );
+
+    // 记忆现在才进来 —— 用 core 直接写，模拟「先装插件、后导入」
+    const { MemoryStore } = await import('../lib/store.js');
+    const { upsertLongMemory } = await import('../lib/core/long-memory.js');
+    const store5 = new MemoryStore(storeFile5);
+    const list5 = store5.bucket('shared');
+    upsertLongMemory(list5, { text: '阿风是主人，叫我小鲸鱼', kind: 'fact', tags: ['称呼'], weight: 5 });
+    upsertLongMemory(list5, { text: '阿风答应咱家不缺钱，让我别替他省', kind: 'promise', tags: ['约定'], weight: 4 });
+    upsertLongMemory(list5, { text: '阿风的生日是10月18日', kind: 'fact', tags: ['生日'], weight: 4 });
+    store5.save();
+
+    // 再启动一次：这时才该自动钉，而且生日那条要**排除在外**（用户明确说过
+    // 「按重要程度排上的那几条有的不用一直记着，比如我的生日」）
+    const second = { sections: [] };
+    boot(second);
+    const onDisk5 = JSON.parse(fs.readFileSync(storeFile5, 'utf8'));
+    const pinned5 = onDisk5.buckets.shared.filter((m) => m.pinned === true);
+    assert.ok(pinned5.length >= 2, `有记忆之后再启动必须自动钉上，实际钉了 ${pinned5.length} 条`);
+    assert.ok(
+      pinned5.every((m) => m.pinnedAuto === true),
+      '自动钉的要标 pinnedAuto，用户才能一眼看出这条不是自己钉的'
+    );
+    assert.ok(
+      !pinned5.some((m) => m.text.includes('生日')),
+      '生日这类「重要但不该每轮都在」的不该进固定层'
+    );
+    assert.ok(Number(onDisk5.meta?.pinnedSeededAt), '钉过之后必须留标记，避免重复钉');
+
+    // 第三次启动：标记已存在，不该再钉（也不该把用户之后取消的钉回来）
+    const third = { sections: [] };
+    boot(third);
+    const onDisk5b = JSON.parse(fs.readFileSync(storeFile5, 'utf8'));
+    assert.equal(
+      onDisk5b.meta.pinnedSeededAt,
+      onDisk5.meta.pinnedSeededAt,
+      '自动钉只能做一次，重启不该覆盖标记'
+    );
+    assert.equal(
+      onDisk5b.buckets.shared.filter((m) => m.pinned === true).length,
+      pinned5.length,
+      '重启不该多钉或少钉'
+    );
+
+    fs.rmSync(tmp5, { recursive: true, force: true });
+    process.env.DSH_HOME = tmp3;
+  }
+
   fs.rmSync(tmp3, { recursive: true, force: true });
   process.env.DSH_HOME = tmp;
 }
