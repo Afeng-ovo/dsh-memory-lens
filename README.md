@@ -155,6 +155,11 @@ dsh plugin remove dsh-memory-lens
 
 ![记忆图](docs/screenshot-graph.png)
 
+「她会想起什么」里那排分层小标签（固定 / 近期 / 话题 / 兜底）长这样：
+
+![分层注入](docs/screenshot-layers.png)
+
+
 ---
 
 ## 数据

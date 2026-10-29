@@ -62,7 +62,7 @@ jobs:
           node -e "
             const p = require('./pack.json')[0];
             const files = p.files.map(f => f.path);
-            const need = ['lib/index.js','lib/client.js','lib/store.js','lib/tools.js','lib/core/long-memory.js','cordis.patch.yml','README.md','LICENSE','docs/screenshot-graph.png'];
+            const need = ['lib/index.js','lib/client.js','lib/store.js','lib/tools.js','lib/core/long-memory.js','cordis.patch.yml','README.md','LICENSE','docs/screenshot-graph.png','docs/screenshot-layers.png'];
             const missing = need.filter(n => !files.includes(n));
             if (missing.length) { console.error('包里缺文件：', missing.join(', ')); process.exit(1); }
             console.log('包文件', files.length, '个，解包', (p.unpackedSize/1024).toFixed(1), 'kB');
