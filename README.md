@@ -287,15 +287,19 @@ node examples/self-host/self-test.mjs   # 内核自检：41 项
 
 ```
 lib/
-  index.js          宿主半：systemPrompt 注入 + 衰减整理 + 4 条 HTTP 路由 + Config
+  index.js          宿主半：systemPrompt 注入 + 衰减整理 + 6 条 HTTP 路由 + Config
   tools.js          三个工具
-  store.js          存储（原子写 + mtime 感知外部改动）
+  store.js          存储（原子写 + mtime 感知外部改动 + 读失败不覆盖）
   core/long-memory.js   纯逻辑：打分 / 衰减 / 检索 / 去重（零 IO 依赖，可单测）
+  core/store-lock.js    跨进程写锁：wx 建锁 + 锁内重读合并 + 陈旧锁回收
+  core/audit.js         体检 / 对比（只读，不改数据）
   client.js         客户端半：设置页分区（含三维星图）
 cordis.patch.yml    loader entry
 ```
 
-`core/` 刻意不碰 `ctx`、不碰 `fs`，只有纯函数。这样打分和衰减逻辑可以脱离 DSH 单独验证 —— 这两块一旦算错，整个插件的行为就全错了，而它们最容易在「看起来正常」的表象下悄悄算错。
+`core/` 刻意不碰 `ctx`，只有纯函数（`store-lock.js` 碰 `fs`，但同样不碰 `ctx`）。这样打分和衰减逻辑可以脱离 DSH 单独验证 —— 这两块一旦算错，整个插件的行为就全错了，而它们最容易在「看起来正常」的表象下悄悄算错。
+
+> 踩坑记录：[docs/INCIDENT-404.md](docs/INCIDENT-404.md) —— 一行 schema 语法写错（`type: ['string','null']`）如何让整个插件加载失败、面板报 404，以及怎么从 `app.asar` 里抠出宿主真实校验代码在本地复现。
 
 
 ### 想自己搭机器人？
